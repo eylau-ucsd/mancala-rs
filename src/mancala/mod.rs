@@ -1,26 +1,27 @@
 use std::fmt;
 
-const ENGINE_DEPTH: u8 = 10;
-const BOARD_SIZE: u8 = 14;
-const STONES: u8 = 4;
-const WHITE_POCKET: u8 = 6;
-const BLACK_POCKET: u8 = 13;
-
 // a pocket on the board (aliased as a u8)
 pub type Pocket = u8;
+pub type Move = Vec<Pocket>;
+pub type Score = i16;
+
+pub const BOARD_SIZE: Pocket = 14;
+pub const STONES: Score = 4;
+pub const WHITE_POCKET: Pocket = 6;
+pub const BLACK_POCKET: Pocket = 13;
 
 // either White's or Black's turn
 #[derive(Debug, Clone, PartialEq)]
-pub enum Turn {
+pub enum Player {
     White,
     Black,
 }
 
-impl Turn {
+impl Player {
     fn toggled(&self) -> Self {
         match *self {
-            Turn::White => Turn::Black,
-            Turn::Black => Turn::White
+            Player::White => Player::Black,
+            Player::Black => Player::White
         }
     }
 }
@@ -34,8 +35,8 @@ pub enum MancalaError {
 // we may get multiple "sub-moves" if we "land" on our own pocket
 #[derive(Debug, Clone)]
 struct SubNode {
-    board: Vec<Pocket>,
-    turn: Turn,
+    board: Vec<Score>,
+    turn: Player,
 }
 
 impl SubNode {
@@ -47,8 +48,8 @@ impl SubNode {
     fn sub_move(&mut self, pocket: Pocket) -> Result<(), MancalaError> {
         let (own_pocket, enemy_pocket, start_index, end_index) =
         match self.turn {
-            Turn::White => (WHITE_POCKET, BLACK_POCKET, (BLACK_POCKET + 1) % BOARD_SIZE, WHITE_POCKET),
-            Turn::Black => (BLACK_POCKET, WHITE_POCKET, (WHITE_POCKET + 1) % BOARD_SIZE, BLACK_POCKET)
+            Player::White => (WHITE_POCKET, BLACK_POCKET, (BLACK_POCKET + 1) % BOARD_SIZE, WHITE_POCKET),
+            Player::Black => (BLACK_POCKET, WHITE_POCKET, (WHITE_POCKET + 1) % BOARD_SIZE, BLACK_POCKET)
         };
         if (pocket < start_index) || (pocket >= end_index) {
             return Err(MancalaError::IndexError);
@@ -110,7 +111,7 @@ impl Default for SubNode {
         }
         SubNode {
             board: new_board,
-            turn: Turn::White
+            turn: Player::White
         }
     }
 }
@@ -121,7 +122,7 @@ pub struct Node(SubNode);
 impl Node {
     // get all node (NOT sub-node) children, given a starting sub-node
     // for each node the corresponding move (as a list of pockets chosen, in reverse order) is returned
-    fn children_from_sub_node(sub_node: &SubNode) -> Vec<(Vec<Pocket>, Node)> {
+    fn children_from_sub_node(sub_node: &SubNode) -> Vec<(Move, Node)> {
         let mut result = Vec::new();
         for (pocket, sub_child) in sub_node.sub_children() {
             // if the sub node toggled the turn, that means the turn ended with that sub-node
@@ -141,11 +142,19 @@ impl Node {
         result
     }
 
-    pub fn children(&self) -> Vec<(Vec<Pocket>, Node)> {
+    pub fn children(&self) -> Vec<(Move, Node)> {
         Self::children_from_sub_node(&self.0).into_iter().map(
             |(full_move, node)| {
                 (full_move.into_iter().rev().collect(), node)
             }).collect()
+    }
+
+    pub fn eval(&self) -> Score {
+        (self.0.board[WHITE_POCKET as usize] as i16) - (self.0.board[BLACK_POCKET as usize] as i16)
+    }
+
+    pub fn get_turn(&self) -> Player {
+        self.0.turn.clone()
     }
 }
 

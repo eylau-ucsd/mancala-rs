@@ -3,7 +3,7 @@ use std::fmt;
 // a pocket on the board (aliased as a u8)
 pub type Pocket = u8;
 pub type Move = Vec<Pocket>;
-pub type Score = i16;
+pub type Score = i32;
 
 pub const BOARD_SIZE: Pocket = 14;
 pub const STONES: Score = 4;
@@ -26,7 +26,16 @@ impl Player {
     }
 }
 
-pub enum MancalaError {
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", match self {
+            Player::White => "White",
+            Player::Black => "Black"
+        })
+    }
+}
+
+pub enum Error {
     IndexError, // pocket number not within valid range
     EmptyError // pocket chosen is empty
 }
@@ -45,17 +54,17 @@ impl SubNode {
         (BOARD_SIZE - 2) - pocket
     }
 
-    fn sub_move(&mut self, pocket: Pocket) -> Result<(), MancalaError> {
+    fn sub_move(&mut self, pocket: Pocket) -> Result<(), Error> {
         let (own_pocket, enemy_pocket, start_index, end_index) =
         match self.turn {
             Player::White => (WHITE_POCKET, BLACK_POCKET, (BLACK_POCKET + 1) % BOARD_SIZE, WHITE_POCKET),
             Player::Black => (BLACK_POCKET, WHITE_POCKET, (WHITE_POCKET + 1) % BOARD_SIZE, BLACK_POCKET)
         };
         if (pocket < start_index) || (pocket >= end_index) {
-            return Err(MancalaError::IndexError);
+            return Err(Error::IndexError);
         }
         if self.board[pocket as usize] == 0 {
-            return Err(MancalaError::EmptyError);
+            return Err(Error::EmptyError);
         }
         let mut cursor = pocket;
         let mut count = self.board[pocket as usize];
@@ -116,7 +125,7 @@ impl Default for SubNode {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Node(SubNode);
 
 impl Node {
@@ -149,8 +158,15 @@ impl Node {
             }).collect()
     }
 
+    pub fn full_move(&mut self, mv: &Move) -> Result<(), Error> {
+        for sub_move in mv {
+            self.0.sub_move(*sub_move)?;
+        }
+        Ok(())
+    }
+
     pub fn eval(&self) -> Score {
-        (self.0.board[WHITE_POCKET as usize] as i16) - (self.0.board[BLACK_POCKET as usize] as i16)
+        (self.0.board[WHITE_POCKET as usize] as Score) - (self.0.board[BLACK_POCKET as usize] as Score)
     }
 
     pub fn get_turn(&self) -> Player {
@@ -174,7 +190,7 @@ impl fmt::Display for Node {
                 format!("( {} )", pocket.to_string())
             }
         ).collect::<Vec<String>>().join("  ");
-        write!(f, "[ {} ]  {}\n\n       {}  [ {} ]", self.0.board[BLACK_POCKET as usize], board_top, board_bottom, self.0.board[WHITE_POCKET as usize])
+        write!(f, "[ {} ]  {}\n\n       {}  [ {} ]\n{} to move", self.0.board[BLACK_POCKET as usize], board_top, board_bottom, self.0.board[WHITE_POCKET as usize], self.0.turn)
     }
 }
 
@@ -185,11 +201,11 @@ mod tests {
     #[test]
     fn test_children() {
         let node = Node::default();
-        let stones: u8 = node.0.board.iter().sum();
+        let stones: Score = node.0.board.iter().sum();
         let children = node.children();
         assert_eq!(children.len(), 10);
         for (_, child) in children {
-            let child_stones: u8 = child.0.board.iter().sum();
+            let child_stones: Score = child.0.board.iter().sum();
             assert_eq!(child_stones, stones);
         }
     }
@@ -200,7 +216,7 @@ mod tests {
         let default_string =
 "[ 0 ]  ( 4 )  ( 4 )  ( 4 )  ( 4 )  ( 4 )  ( 4 )
 
-       ( 4 )  ( 4 )  ( 4 )  ( 4 )  ( 4 )  ( 4 )  [ 0 ]";
+       ( 4 )  ( 4 )  ( 4 )  ( 4 )  ( 4 )  ( 4 )  [ 0 ]\nWhite to move";
         assert_eq!(node.to_string(), default_string);
     }
 }

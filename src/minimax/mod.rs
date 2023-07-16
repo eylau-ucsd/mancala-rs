@@ -1,18 +1,43 @@
 use super::mancala;
+use std::cmp;
 
-pub fn minimax(node: &mancala::Node, depth: usize) -> (Option<mancala::Move>, mancala::Score) {
+// taken from pseudocode found on Wikipedia
+pub fn minimax(node: &mancala::Node, depth: usize, alpha: &mut mancala::Score, beta: &mut mancala::Score) -> (Option<mancala::Move>, mancala::Score) {
     if depth == 0 {
         return (None, node.eval());
     }
     let children = node.children();
-    let wrapped_extremum_tuple =
+    if children.is_empty() {
+        return (None, node.eval());
+    }
     match node.get_turn() {
-        mancala::Player::White => children.iter().max_by_key(|(_, child)| minimax(child, depth-1).1),
-        mancala::Player::Black => children.iter().min_by_key(|(_, child)| minimax(child, depth-1).1)
-    };
-    // if wrapped_extremum_tuple is None then that means there are no children (i.e. the game is over)
-    match wrapped_extremum_tuple {
-        Some(extremum_tuple) => (Some(extremum_tuple.0.clone()), extremum_tuple.1.eval()),
-        None => (None, node.eval())
+        mancala::Player::White => {
+            let mut max_score = mancala::Score::MIN;
+            let mut max_move = vec![];
+            for (mv, child) in children {
+                let score = minimax(&child, depth - 1, alpha, beta).1;
+                if score > max_score {
+                    max_score = score;
+                    max_move = mv;
+                }
+                if max_score > *beta { break; }
+                *alpha = cmp::max(*alpha, max_score);
+            }
+            (Some(max_move), max_score)
+        }
+        mancala::Player::Black => {
+            let mut min_score = mancala::Score::MAX;
+            let mut min_move = vec![];
+            for (mv, child) in children {
+                let score = minimax(&child, depth - 1, alpha, beta).1;
+                if score < min_score {
+                    min_score = score;
+                    min_move = mv;
+                }
+                if min_score < *alpha { break; }
+                *beta = cmp::min(*beta, min_score);
+            }
+            (Some(min_move), min_score)
+        }
     }
 }

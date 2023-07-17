@@ -3,11 +3,11 @@ use std::cmp;
 
 // taken from pseudocode found on Wikipedia
 pub fn minimax(node: &mancala::Node, depth: usize, alpha: &mut mancala::Score, beta: &mut mancala::Score) -> (Option<mancala::Move>, mancala::Score) {
-    if depth == 0 {
-        return (None, node.eval());
-    }
     let children = node.children();
     if children.is_empty() {
+        return (None, node.final_score());
+    }
+    if depth == 0 {
         return (None, node.eval());
     }
     match node.get_turn() {
